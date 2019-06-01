@@ -4,18 +4,32 @@
 #include <iostream>
 #include <QMessageBox>
 
-Sphere::Sphere(GLfloat x, GLfloat y, GLfloat z, GLfloat r) {
+Sphere::Sphere(QVector3D sp_center, float sp_radius) {
 
-    radius = r;
-    center = std::make_shared<QVector3D>(x,y,z);
+    center = sp_center;
+    radius = sp_radius;
+
+    QVector3D p1 = QVector3D{2 * radius, 2 * radius, 0};
+    QVector3D p2 = QVector3D{2 * -radius, 2 * radius, 0};
+    QVector3D p3 = QVector3D{2 * -radius, 2 * -radius, 0};
+    QVector3D p4 = QVector3D{2 * radius, 2 * -radius, 0};
+
+    sp_positions.resize(6);
+
+    sp_positions[0] = p1;
+    sp_positions[1] = p2;
+    sp_positions[2] = p3;
+    sp_positions[3] = p3;
+    sp_positions[4] = p4;
+    sp_positions[5] = p1;
 
     // the position buffer
     positionBuffer = QOpenGLBuffer(QOpenGLBuffer::VertexBuffer);
     positionBuffer.setUsagePattern(QOpenGLBuffer::StaticDraw);
     positionBuffer.create();
     positionBuffer.bind();
-    positionBuffer.allocate(&positions[0],
-                            positions.size() * sizeof(QVector3D));
+    positionBuffer.allocate(&sp_positions[0],
+                            sp_positions.size() * sizeof(QVector3D));
     positionBuffer.release();
 
 }
@@ -23,20 +37,13 @@ Sphere::Sphere(GLfloat x, GLfloat y, GLfloat z, GLfloat r) {
 
 void Sphere::render(std::shared_ptr<QOpenGLShaderProgram> program) {
 
-    int positionAttributeID;
-    positionAttributeID = program->attributeLocation("position");
-
-    // enable the attributes
-    program->enableAttributeArray(positionAttributeID);
-
-    // set the geometry using the generated VBOs
+    program->enableAttributeArray("position");
     positionBuffer.bind();
-    program->setAttributeBuffer(positionAttributeID, GL_FLOAT, 0, 3);
-    positionBuffer.release();
+    program->setAttributeBuffer("position", GL_FLOAT, 0, 3);
 
     program->setUniformValue("radius", radius);
-    program->setUniformValue("center", *center);
+    program->setUniformValue("center", center);
 
-    glDrawArrays(GL_TRIANGLES, 0, 36);
+    glDrawArrays(GL_TRIANGLES, 0, 2 * 3);
 
 }

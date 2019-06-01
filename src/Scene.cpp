@@ -9,7 +9,7 @@
 #include "Model.h"
 #include "Scene.h"
 #include "Skybox.h"
-#include "Sphere.h"
+
 
 inline void OpenGLError() {
   GLenum errCode;
@@ -21,7 +21,6 @@ inline void OpenGLError() {
 Scene::Scene(QWidget *parent) : QGLWidget(parent) {
   m_program = nullptr;
   m_skybox = nullptr;
-  m_sphere = nullptr;
 
   mousepressed = false;
   isDragging = false;
@@ -31,7 +30,7 @@ Scene::Scene(QWidget *parent) : QGLWidget(parent) {
   Model::nameCount = 10;
   m_selectedModel = -1;
 
-  showFloor = false;
+  showFloor = true;
 
   // start the update Timer (30fps)
   connect(&updateTimer, SIGNAL(timeout()), this, SLOT(updateGL()));
@@ -449,19 +448,6 @@ void Scene::paintGL() {
 
   skybox_program->release();
 
-  // load billboard sphere
-  if (m_sphere == nullptr){
-      m_sphere = std::make_shared<Sphere>(1.0f, 1.0f, 1.0f, 1.0f);
-  }
-
-  sphere_program->bind();
-  sphere_program->setUniformValue("projection", m_projection);
-  sphere_program->setUniformValue("view", m_view);
-  sphere_program->setUniformValue("model", ??);
-
-  m_sphere->render(sphere_program);
-  sphere_program->release();
-
   //render all models
 
   // the floor is always the first model, so if (showFloor == false), we
@@ -522,9 +508,33 @@ void Scene::paintGL() {
          s_program->release();
      }
 
-  // release shader the program
-  m_program->release();
+    // release shader the program
+    m_program->release();
   }
-  // Aufgabe 2 - bis hier hin sollte eine Ebene der Kommentare entfernt
-  // werden
+  // Aufgabe 2
+
+  QVector3D cameraPosition = (m_view.inverted() * QVector4D(0.0, 0.0, 0.0, 1.0)).toVector3DAffine();
+
+  std::vector<std::shared_ptr<Sphere>> spheres {
+
+      //std::make_shared<Sphere>(QVector3D(0.0, 0.0, 0.0), 10.0),
+      //std::make_shared<Sphere>(QVector3D(10.0, 0.0, -10.0), 1.0),
+      //std::make_shared<Sphere>(QVector3D(-10.0, -10.0, -10.0), 1.0),
+      std::make_shared<Sphere>(QVector3D(0.0, 0.0, 0.0), 1.0)
+
+  };
+
+  sphere_program->bind();
+
+  sphere_program->setUniformValue("projection", m_projection);
+  sphere_program->setUniformValue("view", m_view);
+  sphere_program->setUniformValue("cameraPosition", cameraPosition);
+
+  //m_skybox->bindTexture();
+
+  for(auto&& sphere: spheres){
+      sphere->render(sphere_program);
+  }
+
+  sphere_program->release();
 }

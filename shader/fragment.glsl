@@ -61,9 +61,10 @@ void main(void)
         result += currentLightAmbient + currentLightDiffuse + currentLightSpecular;
     }
 
-    vec3 color = texture( textureSampler, fragTexture ).rgb;
-
-    result = result * color;
+    if (fragTexture.x > 0 && fragTexture.y > 0){
+        vec3 color = texture( textureSampler, fragTexture ).rgb;
+        result = result * color;
+    }
 
     finalColor = vec4(result, alpha);
 

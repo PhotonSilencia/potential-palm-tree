@@ -25,7 +25,7 @@ void main(void)
     eyeDirection_cameraspace = vec3(0.0, 0.0, 0.0) - vertexPosition_cameraspace;
 
     vec3 lightPosition_cameraspace = (view * vec4(lightPosition, 1.0)).xyz;
-    lightDirection_cameraspace = lightPosition_cameraspace + eyeDirection_cameraspace;
+    lightDirection_cameraspace = lightPosition_cameraspace - eyeDirection_cameraspace;
 
 //    lightDirections = vec3[9];
 

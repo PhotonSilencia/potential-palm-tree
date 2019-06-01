@@ -19,6 +19,7 @@ public:
     Skybox();
 
     virtual void render(std::shared_ptr<QOpenGLShaderProgram> program);
+    void bindTexture();
 
     std::shared_ptr<QOpenGLTexture> texture;
 

@@ -391,6 +391,7 @@ moc/moc_Mainwindow.cpp: src/Mainwindow.h \
 
 moc/moc_Scene.cpp: src/Skybox.h \
 		src/Sphere.h \
+		src/CGTypes.h \
 		src/Scene.h \
 		moc/moc_predefs.h \
 		/usr/lib/qt5/bin/moc
@@ -422,7 +423,8 @@ obj/Mainwindow.o: src/Mainwindow.cpp src/Mainwindow.h \
 		src/EditWidgets.h \
 		src/Scene.h \
 		src/Skybox.h \
-		src/Sphere.h
+		src/Sphere.h \
+		src/CGTypes.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/Mainwindow.o src/Mainwindow.cpp
 
 obj/Scene.o: src/Scene.cpp src/CGFunctions.h \
@@ -455,7 +457,8 @@ obj/Skybox.o: src/Skybox.cpp src/Skybox.h \
 		src/CGTypes.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/Skybox.o src/Skybox.cpp
 
-obj/Sphere.o: src/Sphere.cpp src/Sphere.h
+obj/Sphere.o: src/Sphere.cpp src/Sphere.h \
+		src/CGTypes.h
 	$(CXX) -c $(CXXFLAGS) $(INCPATH) -o obj/Sphere.o src/Sphere.cpp
 
 obj/moc_Mainwindow.o: moc/moc_Mainwindow.cpp 

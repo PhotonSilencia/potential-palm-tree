@@ -35,9 +35,10 @@ void main(void)
 
     vec3 result = l_ambient + l_diffuse + l_specular;
 
-    vec3 color = texture( textureSampler, fragTexture ).rgb;
-
-    result = result * color * 1.5;
+    if (fragTexture.x > 0 && fragTexture.y > 0){
+        vec3 color = texture( textureSampler, fragTexture ).rgb;
+        result = result * color * 1.5;
+    }
 
     finalColor = vec4(result, alpha);
 

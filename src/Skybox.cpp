@@ -93,3 +93,11 @@ void Skybox::render(std::shared_ptr<QOpenGLShaderProgram> program) {
     glEnable(GL_DEPTH_TEST);
 
 }
+
+void Skybox::bindTexture(){
+
+    texture->bind();
+
+    glBindTexture(GL_TEXTURE_CUBE_MAP, texture->textureId());
+
+}
