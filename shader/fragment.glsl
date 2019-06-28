@@ -35,10 +35,29 @@ void main(void)
     //Phong Shading Calculation
     float cosTheta = clamp( dot( n, l), 0, 1);
     float cosPhi = clamp( dot( r, v), 0, 1);
+    cosPhi = pow(cosPhi, shine);
+
+    //Cel Shading
+    float celDiffuse, celSpecular;
+    if (cosTheta <= 0.33){
+        celDiffuse = 0.0;
+    } else if (cosTheta <= 0.7){
+        celDiffuse = 0.5;
+    } else {
+        celDiffuse = 1.0;
+    }
+
+    if (cosPhi <= 0.33){
+        celSpecular = 0.0;
+    } else if (cosPhi <= 0.7){
+        celSpecular = 0.5;
+    } else {
+        celSpecular = 1.0;
+    }
 
     vec3 l_ambient = vec3(1.0, 1.0, 1.0) * matAmbient;
-    vec3 l_diffuse = vec3(1.0, 1.0, 1.0) * matDiffuse * cosTheta;
-    vec3 l_specular = vec3(1.0, 1.0, 1.0) * matSpecular * pow(cosPhi, shine);
+    vec3 l_diffuse = vec3(1.0, 1.0, 1.0) * matDiffuse * celDiffuse;
+    vec3 l_specular = vec3(1.0, 1.0, 1.0) * matSpecular * celSpecular;
 
     vec3 result = l_ambient + l_diffuse + l_specular;
 

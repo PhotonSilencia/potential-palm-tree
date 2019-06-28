@@ -76,6 +76,8 @@ DIST          = shader/selectedfragment.glsl \
 		shader/skyboxvertex.glsl \
 		shader/spherevertex.glsl \
 		shader/spherefragment.glsl \
+		shader/outlinefragment.glsl \
+		shader/outlinevertex.glsl \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/features/spec_pre.prf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/common/unix.conf \
 		/usr/lib/x86_64-linux-gnu/qt5/mkspecs/common/linux.conf \

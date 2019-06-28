@@ -21,6 +21,7 @@ class Sphere
 public:
     Sphere(QVector3D sp_center, float sp_radius);
     virtual void render(std::shared_ptr<QOpenGLShaderProgram> program);
+    QVector3D getCenter();
 
 private:
 

@@ -47,3 +47,7 @@ void Sphere::render(std::shared_ptr<QOpenGLShaderProgram> program) {
     glDrawArrays(GL_TRIANGLES, 0, 2 * 3);
 
 }
+
+QVector3D Sphere::getCenter(){
+    return center;
+}

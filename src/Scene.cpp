@@ -30,7 +30,7 @@ Scene::Scene(QWidget *parent) : QGLWidget(parent) {
   Model::nameCount = 10;
   m_selectedModel = -1;
 
-  showFloor = true;
+  showFloor = false;
 
   // start the update Timer (30fps)
   connect(&updateTimer, SIGNAL(timeout()), this, SLOT(updateGL()));
@@ -241,11 +241,26 @@ void Scene::reloadShader() {
                                QString("shader/skyboxfragment.glsl"));
   sphere_program = loadShaders(QString("shader/spherevertex.glsl"),
                                QString("shader/spherefragment.glsl"));
+  outline_program = loadShaders(QString("shader/outlinevertex.glsl"),
+                                QString("shader/outlinefragment.glsl"));
 }
 
 void Scene::setFloor() { showFloor = !showFloor; }
 
 void Scene::initializeGL() {
+
+  // 2./5. Erstellung der Projection Matrix, aspect ratio = 1.0 (bis jetzt)
+  cubemapProjectionMatrix.setToIdentity();
+  cubemapProjectionMatrix.perspective(60.0, 1.0, 10.0, 4000.0);
+
+  // Erstellung und Ausrichtung der View Matrizen
+  cubemapViewMatrices.resize(6);
+
+  cubemapViewMatrices[0].rotate(90.0, 0.0, 1.0, 0.0);
+  cubemapViewMatrices[1].rotate(270.0, 0.0, 1.0, 0.0);
+  cubemapViewMatrices[2].rotate(270.0, 1.0, 0.0, 0.0);
+  cubemapViewMatrices[3].rotate(90.0, 1.0, 0.0, 0.0);
+  cubemapViewMatrices[4].rotate(180.0, 0.0, 1.0, 0.0);
 
   vao.create();
   vao.bind();
@@ -262,7 +277,7 @@ void Scene::initializeGL() {
 
   resetScene();
 
-  OpenGLError();  
+  OpenGLError();
 
 }
 
@@ -422,6 +437,13 @@ void Scene::setTransformations() {
   m_view.rotate((zRot / 16.0f), 0.0f, 0.0f, 1.0f);
 }
 
+std::vector<QMatrix4x4> Scene::translateViewMatrices(QVector3D c_center){
+    std::vector<QMatrix4x4> viewMatrices(cubemapViewMatrices);
+    for (auto&& viewMatrix : viewMatrices){
+        viewMatrix.translate(-c_center);
+    }
+    return viewMatrices;
+}
 
 void Scene::paintGL() {
   ++frame;
@@ -448,12 +470,65 @@ void Scene::paintGL() {
 
   skybox_program->release();
 
+  //Spheres
+  QVector3D cameraPosition = (m_view.inverted() * QVector4D(0.0, 0.0, 0.0, 1.0)).toVector3DAffine();
+
+  std::vector<std::shared_ptr<Sphere>> spheres {
+
+      //std::make_shared<Sphere>(QVector3D(-10.0, 0.0, -10.0), 2.0),
+      //std::make_shared<Sphere>(QVector3D(55.0, 0.0, -5.0), 2.0),
+      //std::make_shared<Sphere>(QVector3D(-5.0, -5.0, -5.0), 2.0),
+      //std::make_shared<Sphere>(QVector3D(10.0, -7.0, -10.0), 2.0),
+      //std::make_shared<Sphere>(QVector3D(20.0, -9.0, -20.0), 6.0),
+      std::make_shared<Sphere>(QVector3D(0.0, 0.0, 0.0), 1.0)
+
+  };
+
+  int animationTime = 10;
+  int refreshRate = 24;
+
+  float velocity = 10.0 / refreshRate;
+  float animationFrame = abs(frame % (refreshRate * animationTime));
+
+  sphere_program->bind();
+
+  sphere_program->setUniformValue("projection", m_projection);
+  sphere_program->setUniformValue("view", m_view);
+  sphere_program->setUniformValue("cameraPosition", cameraPosition);
+
+  sphere_program->setUniformValue("frame", animationFrame);
+  sphere_program->setUniformValue("step", QVector3D(0, velocity / 4, 0));
+
+  //m_skybox->bindTexture();
+  QVector3D m_center;
+
+  m_program->bind();
+  m_program->setUniformValue("view", m_view);
+  m_program->setUniformValue("cameraPosition", cameraPosition);
+
+  for(auto&& sphere: spheres){
+      m_center = sphere->getCenter();
+
+      m_program->bind();
+      for (auto&& viewMatrix: translateViewMatrices(m_center)){
+          m_program->setUniformValue("view", viewMatrix);
+      }
+      m_program->release();
+
+      sphere_program->bind();
+
+      sphere->render(sphere_program);
+
+      sphere_program->release();
+  }
+
+  sphere_program->release();
+
   //render all models
 
   // the floor is always the first model, so if (showFloor == false), we
   // simply start the rendering
   // with the second model
-
   size_t i;
   for (showFloor ? i = 0 : i = 1; i < m_models.size(); ++i) {
 
@@ -513,28 +588,35 @@ void Scene::paintGL() {
   }
   // Aufgabe 2
 
-  QVector3D cameraPosition = (m_view.inverted() * QVector4D(0.0, 0.0, 0.0, 1.0)).toVector3DAffine();
+  glEnable(GL_CULL_FACE);
+  glEnable(GL_BLEND);
+  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-  std::vector<std::shared_ptr<Sphere>> spheres {
+  glPolygonMode(GL_BACK, GL_LINE);
+  glLineWidth(3.0f);
 
-      //std::make_shared<Sphere>(QVector3D(0.0, 0.0, 0.0), 10.0),
-      //std::make_shared<Sphere>(QVector3D(10.0, 0.0, -10.0), 1.0),
-      //std::make_shared<Sphere>(QVector3D(-10.0, -10.0, -10.0), 1.0),
-      std::make_shared<Sphere>(QVector3D(0.0, 0.0, 0.0), 1.0)
+  glCullFace(GL_FRONT);
 
-  };
+  size_t j;
+  for (showFloor ? j = 0 : j = 1; j < m_models.size(); ++j) {
 
-  sphere_program->bind();
+      outline_program->bind();
 
-  sphere_program->setUniformValue("projection", m_projection);
-  sphere_program->setUniformValue("view", m_view);
-  sphere_program->setUniformValue("cameraPosition", cameraPosition);
+      QMatrix4x4 outlineModelMatrix = m_models[j]->getTransformations();
 
-  //m_skybox->bindTexture();
+      outline_program->setUniformValue("projection", m_projection);
+      outline_program->setUniformValue("view", m_view);
+      outline_program->setUniformValue("model", outlineModelMatrix);
 
-  for(auto&& sphere: spheres){
-      sphere->render(sphere_program);
+      m_models[j]->render(outline_program);
+
+      outline_program->release();
+
   }
 
-  sphere_program->release();
+  glCullFace(GL_BACK);
+  glPolygonMode(GL_BACK, GL_FILL);
+  glDisable(GL_BLEND);
+  glDisable(GL_CULL_FACE);
+
 }

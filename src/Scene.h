@@ -51,6 +51,7 @@ public slots:
   void reloadShader();
   void resetScene();
   void setFloor();
+  std::vector<QMatrix4x4> translateViewMatrices(QVector3D c_center);
 
   void triangleInit();
 
@@ -116,6 +117,16 @@ private:
 
   //the sphere shader program
   std::shared_ptr<QOpenGLShaderProgram> sphere_program;
+
+  //the cel shading outline program
+  std::shared_ptr<QOpenGLShaderProgram> outline_program;
+
+  //Dynamic Cube Mapping
+  //QOpenGLFramebufferObject cubemap_object;
+
+  // 2. 6 view matrices, 1 projection matrix
+  std::vector<QMatrix4x4> cubemapViewMatrices;
+  QMatrix4x4 cubemapProjectionMatrix;
 
   // AUFGABE 1: hier sollten Sie die Attribute setzen und die Buffer deklarieren
 

@@ -54,5 +54,7 @@ DISTFILES += \
     shader/skyboxfragment.glsl \
     shader/skyboxvertex.glsl \
     shader/spherevertex.glsl \
-    shader/spherefragment.glsl
+    shader/spherefragment.glsl \
+    shader/outlinefragment.glsl \
+    shader/outlinevertex.glsl
 
