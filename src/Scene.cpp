@@ -253,14 +253,28 @@ void Scene::initializeGL() {
   cubemapProjectionMatrix.setToIdentity();
   cubemapProjectionMatrix.perspective(60.0, 1.0, 10.0, 4000.0);
 
-  // Erstellung und Ausrichtung der View Matrizen
+  // Erstellung und Ausrichtung der View Matrizen (scheint noch Rotationen zu benötigen)
   cubemapViewMatrices.resize(6);
 
-  cubemapViewMatrices[0].rotate(90.0, 0.0, 1.0, 0.0);
-  cubemapViewMatrices[1].rotate(270.0, 0.0, 1.0, 0.0);
-  cubemapViewMatrices[2].rotate(270.0, 1.0, 0.0, 0.0);
-  cubemapViewMatrices[3].rotate(90.0, 1.0, 0.0, 0.0);
-  cubemapViewMatrices[4].rotate(180.0, 0.0, 1.0, 0.0);
+  auto origin = QVector3D(0.0, 0.0, 0.0);
+  auto x = QVector3D(1.0, 0.0, 0.0);
+  auto y = QVector3D(0.0, 1.0, 0.0);
+  auto z = QVector3D(0.0, 0.0, 1.0);
+  auto negativex = QVector3D(-1.0, 0.0, 0.0);
+  auto negativey = QVector3D(0.0, -1.0, 0.0);
+  auto negativez = QVector3D(0.0, 0.0, -1.0);
+
+  cubemapViewMatrices[0].lookAt(origin, x, y);
+  cubemapViewMatrices[1].lookAt(origin, x, y);
+  cubemapViewMatrices[2].lookAt(origin, x, y);
+  cubemapViewMatrices[3].lookAt(origin, x, y);
+  cubemapViewMatrices[4].lookAt(origin, x, y);
+  cubemapViewMatrices[5].lookAt(origin, x, y);
+  //cubemapViewMatrices[1].lookAt(origin, negativex, y);
+//  cubemapViewMatrices[2].lookAt(origin, y, y);
+//  cubemapViewMatrices[3].lookAt(origin, negativey, y);
+//  cubemapViewMatrices[4].lookAt(origin, z, y);
+//  cubemapViewMatrices[5].lookAt(origin, negativez, y);
 
   vao.create();
   vao.bind();
@@ -506,18 +520,107 @@ void Scene::paintGL() {
   m_program->setUniformValue("view", m_view);
   m_program->setUniformValue("cameraPosition", cameraPosition);
 
+  // Dynamic Cube Mapping
+  // 1. Initialisierung des FrameBufferObjects (vielleicht nicht richtig)
+  QOpenGLFramebufferObjectFormat format;
+  format.setAttachment(QOpenGLFramebufferObject::CombinedDepthStencil);
+  format.setTextureTarget(GL_TEXTURE_2D);
+
+  QSize qsize(800, 800);
+
+  //Erzeuge ein einzelnes Framebuffer-Objekt, das später Bilder speichert
+  QOpenGLFramebufferObject cubemap_object(qsize, format);
+
+      // This might be complete nonsense
   for(auto&& sphere: spheres){
+
       m_center = sphere->getCenter();
 
-      m_program->bind();
+      QImage cubemapImages[6];
+
+      int cubemapImageIndex = 0;
+
       for (auto&& viewMatrix: translateViewMatrices(m_center)){
-          m_program->setUniformValue("view", viewMatrix);
+
+          cubemap_object.bind();
+
+          glClear(GL_FRAMEBUFFER);
+
+          // Render Skybox
+          skybox_program->bind();
+          m_skybox->render(skybox_program);
+          skybox_program->release();
+
+          // Render Models
+          for (size_t i = showFloor ? 0 : 1; i < m_models.size(); ++i){
+              m_program->bind();
+
+              QMatrix4x4 modelMatrix = m_models[i]->getTransformations();
+
+              m_program->setUniformValue("projection", cubemapProjectionMatrix);
+              m_program->setUniformValue("view", viewMatrix);
+              m_program->setUniformValue("model", modelMatrix);
+
+              m_models[i]->render(m_program);
+
+              m_program->release();
+          }
+
+          cubemapImages[cubemapImageIndex] = cubemap_object.toImage();
+
+          cubemapImageIndex++;
+
+          cubemap_object.release();
       }
-      m_program->release();
+
+      //Erzeugen einer Cubemap-Textur
+      std::shared_ptr<QOpenGLTexture> cubemapTexture;
+      cubemapTexture = std::make_shared<QOpenGLTexture>(QOpenGLTexture::TargetCubeMap);
+
+      cubemapTexture->create();
+      cubemapTexture->setSize(cubemapImages[0].width(), cubemapImages[0].height(), cubemapImages[0].depth());
+      cubemapTexture->setFormat(QOpenGLTexture::RGBA8_UNorm);
+      cubemapTexture->allocateStorage();
+
+      std::vector<QOpenGLTexture::CubeMapFace> cubemapFaces =
+      {
+
+          QOpenGLTexture::CubeMapPositiveX,
+          QOpenGLTexture::CubeMapNegativeX,
+          QOpenGLTexture::CubeMapPositiveY,
+          QOpenGLTexture::CubeMapNegativeY,
+          QOpenGLTexture::CubeMapPositiveZ,
+          QOpenGLTexture::CubeMapNegativeZ
+
+      };
+
+      // Transfer all pictures
+      for (size_t i = 0; i < cubemapFaces.size(); i++) {
+
+          cubemapTexture->setData(0, 0, cubemapFaces[i], QOpenGLTexture::BGRA, QOpenGLTexture::UInt8, (const void*)cubemapImages[i].constBits(), 0);
+
+      }
+
+      // Generate Mipmaps
+      cubemapTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
+      cubemapTexture->setMinificationFilter(QOpenGLTexture::LinearMipMapLinear);
+      cubemapTexture->setMagnificationFilter(QOpenGLTexture::LinearMipMapLinear);
+      cubemapTexture->generateMipMaps();
 
       sphere_program->bind();
 
+      cubemapTexture->bind();
+
+      glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture->textureId());
+
+//      std::cout<<cubemapTexture->textureId()<<std::endl;
+
+      // Funktioniert nicht korrekt
+      sphere_program->setUniformValue("textureCube", 0);
+
       sphere->render(sphere_program);
+
+      cubemapTexture->release();
 
       sphere_program->release();
   }
