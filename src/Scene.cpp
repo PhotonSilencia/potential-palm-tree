@@ -55,6 +55,10 @@ void Scene::resetScene() {
   loadModelFromOBJFile(QString("plane/plane.obj"));
   m_models.back()->rotate(QVector3D(1.0, 0.0, 0.0), -90);
   m_models.back()->scale(10, 0, 10);
+
+  loadModelFromOBJFile(QString("Testmodelle/dragon/dragon.obj"));
+  m_models.back()->scale(0.1, 0.1, 0.1);
+  m_models.back()->translate(3, 1, 3);
 }
 
 Scene::~Scene() {
@@ -265,16 +269,16 @@ void Scene::initializeGL() {
   auto negativez = QVector3D(0.0, 0.0, -1.0);
 
   cubemapViewMatrices[0].lookAt(origin, x, y);
-  cubemapViewMatrices[1].lookAt(origin, x, y);
-  cubemapViewMatrices[2].lookAt(origin, x, y);
-  cubemapViewMatrices[3].lookAt(origin, x, y);
-  cubemapViewMatrices[4].lookAt(origin, x, y);
-  cubemapViewMatrices[5].lookAt(origin, x, y);
-  //cubemapViewMatrices[1].lookAt(origin, negativex, y);
-//  cubemapViewMatrices[2].lookAt(origin, y, y);
-//  cubemapViewMatrices[3].lookAt(origin, negativey, y);
-//  cubemapViewMatrices[4].lookAt(origin, z, y);
-//  cubemapViewMatrices[5].lookAt(origin, negativez, y);
+//  cubemapViewMatrices[1].lookAt(origin, x, y);
+//  cubemapViewMatrices[2].lookAt(origin, x, y);
+//  cubemapViewMatrices[3].lookAt(origin, x, y);
+//  cubemapViewMatrices[4].lookAt(origin, x, y);
+//  cubemapViewMatrices[5].lookAt(origin, x, y);
+  cubemapViewMatrices[1].lookAt(origin, negativex, y);
+  cubemapViewMatrices[2].lookAt(origin, y, z);
+  cubemapViewMatrices[3].lookAt(origin, negativey, negativez);
+  cubemapViewMatrices[4].lookAt(origin, z, y);
+  cubemapViewMatrices[5].lookAt(origin, negativez, y);
 
   vao.create();
   vao.bind();
@@ -526,7 +530,15 @@ void Scene::paintGL() {
   format.setAttachment(QOpenGLFramebufferObject::CombinedDepthStencil);
   format.setTextureTarget(GL_TEXTURE_2D);
 
-  QSize qsize(800, 800);
+  int cubemapSize = 512;
+
+  QSize qsize(cubemapSize, cubemapSize);
+
+  QMatrix4x4 cubeMapProjection;
+
+  cubeMapProjection.setToIdentity();
+  const qreal zNear = 0.1f, zFar = 400.0f;
+  cubeMapProjection.perspective(90, 1, zNear, zFar);
 
   //Erzeuge ein einzelnes Framebuffer-Objekt, das später Bilder speichert
   QOpenGLFramebufferObject cubemap_object(qsize, format);
@@ -544,26 +556,73 @@ void Scene::paintGL() {
 
           cubemap_object.bind();
 
-          glClear(GL_FRAMEBUFFER);
+          glViewport(0, 0, cubemapSize, cubemapSize);
+
+          glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
           // Render Skybox
           skybox_program->bind();
+          skybox_program->setUniformValue("projection", cubeMapProjection);
+          skybox_program->setUniformValue("view", viewMatrix);
           m_skybox->render(skybox_program);
           skybox_program->release();
 
-          // Render Models
-          for (size_t i = showFloor ? 0 : 1; i < m_models.size(); ++i){
-              m_program->bind();
+          size_t i;
+          for (showFloor ? i = 0 : i = 1; i < m_models.size(); ++i) {
 
-              QMatrix4x4 modelMatrix = m_models[i]->getTransformations();
+             m_program->bind();
 
-              m_program->setUniformValue("projection", cubemapProjectionMatrix);
-              m_program->setUniformValue("view", viewMatrix);
-              m_program->setUniformValue("model", modelMatrix);
+             QMatrix4x4 modelMatrix = m_models[i]->getTransformations();
 
-              m_models[i]->render(m_program);
+             m_program->setUniformValue("projection", cubeMapProjection);
+             m_program->setUniformValue("view", viewMatrix);
+             m_program->setUniformValue("model", modelMatrix);
 
-              m_program->release();
+             QVector3D lightPosition = m_models[i]->getBoundingBox().center;
+
+             m_program->setUniformValue("lightPosition", lightPosition);
+
+             QVector3D lightPositions[9];
+             QVector3D lightAmbient[9];
+             QVector3D lightDiffuse[9];
+             QVector3D lightSpecular[9];
+
+             for (size_t j = 0; j < m_lights.size() && j < 9; j++){
+
+                 lightPositions[j] = m_lights[j]->getBoundingBox().center;
+                 lightAmbient[j] = m_lights[j]->getAmbient();
+                 lightDiffuse[j] = m_lights[j]->getDiffuse();
+                 lightSpecular[j] = m_lights[j]->getSpecular();
+
+             }
+
+             m_program->setUniformValueArray("lightPositions", lightPositions, 9);
+             m_program->setUniformValue("lightCount", (int)m_lights.size());
+             m_program->setUniformValueArray("lightAmbient", lightAmbient, 9);
+             m_program->setUniformValueArray("lightDiffuse", lightDiffuse, 9);
+             m_program->setUniformValueArray("lightSpecular", lightSpecular, 9);
+
+             m_program->setUniformValue("textureSampler", 0);
+
+             // render the model
+             m_models[i]->render(m_program);
+
+             if (m_selectedModel >= 0) {
+                 s_program->bind();
+
+                 QMatrix4x4 s_modelMatrix = m_models[m_selectedModel]->getTransformations();
+
+                 s_program->setUniformValue("projection", m_projection);
+                 s_program->setUniformValue("view", m_view);
+                 s_program->setUniformValue("model", s_modelMatrix);
+
+                 m_models[m_selectedModel]->render(s_program);
+
+                 s_program->release();
+             }
+
+            // release shader the program
+            m_program->release();
           }
 
           cubemapImages[cubemapImageIndex] = cubemap_object.toImage();
@@ -572,6 +631,9 @@ void Scene::paintGL() {
 
           cubemap_object.release();
       }
+
+
+      glViewport(0, 0, width(), height());
 
       //Erzeugen einer Cubemap-Textur
       std::shared_ptr<QOpenGLTexture> cubemapTexture;
@@ -597,9 +659,13 @@ void Scene::paintGL() {
       // Transfer all pictures
       for (size_t i = 0; i < cubemapFaces.size(); i++) {
 
+//          cubemapImages[i].save(QString("face%1.png").arg(i));
+
           cubemapTexture->setData(0, 0, cubemapFaces[i], QOpenGLTexture::BGRA, QOpenGLTexture::UInt8, (const void*)cubemapImages[i].constBits(), 0);
 
       }
+
+//      exit(0);
 
       // Generate Mipmaps
       cubemapTexture->setWrapMode(QOpenGLTexture::ClampToEdge);
